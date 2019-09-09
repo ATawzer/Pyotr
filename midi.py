@@ -11,9 +11,11 @@ class MidiDataFrame:
     def __init__(self, path):
         self.path = path
         self.df = pd.DataFrame()
+        self.notes = pd.DataFrame()
 
         # Function Initialization
         self.parse_midi_to_df()
+        self.split_parsed_df()
 
     def parse_midi_to_df(self):
         """ Function for converting midi file in path to a pandas dataframe"""
@@ -23,10 +25,24 @@ class MidiDataFrame:
         except:
             raise(IOError("Invalid Midi File, Midi df could not be parsed."))
 
-    def nest_parsed_df(self):
+        # Name the columns
+        columns = ['Track', 'Time', 'Type']
+        for i in range(3, len(self.df.columns)):
+            columns.append(f'TypeInfo{i}')
+
+        self.df.columns = columns
+        self.df.replace('\n', '', regex=True, inplace=True)
+
+    def split_parsed_df(self):
         """ Nests the dataframes into different types of data"""
 
-    def unnest_parsed_df(self):
+        # Notes
+        self.notes = self.df[(self.df.Type == 'Note_on_c') | (self.df.Type == 'Note_off_c')][self.df.columns[0:6]]
+        self.notes.columns = ['Track', 'Time', 'Type', 'Channel', 'Note', 'Velocity']
+
+        # Misc. Controls
+
+    def join_split_df(self):
         """ Unnests the dataframe into the self.df. Useful if writing midi file back out to drive"""
 
     def parse_df_to_midi(self, outpath):
@@ -50,7 +66,8 @@ def parse_all_midi_files(midi_dir):
 
 def Main():
 
-    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files"
-    print(parse_all_midi_files(testPath))
+    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files\tch"
+    mdfs = parse_all_midi_files(testPath)
+    print(mdfs[0].notes.head())
 
 Main()
