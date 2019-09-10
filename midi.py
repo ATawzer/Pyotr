@@ -2,13 +2,16 @@ import pandas as pd
 from py_midicsv import midicsv
 from os import walk
 from tqdm import tqdm
+import numpy as np
+import tensorflow as tf
 
 class MidiDataFrame:
-    """
-    Simple Class for storing a single midi file as nested dataframe and keeping contents organized.
-    Implements a nested structure to keep musical elements from metadata elements
-    """
+
     def __init__(self, path):
+        """
+        Simple Class for storing MIDI data as a dataframe and keeping data clean.
+        :param path: Location on disk of the MIDI file to be parsed
+        """
         self.path = path
         self.df = pd.DataFrame()
         self.notes = pd.DataFrame()
@@ -16,6 +19,7 @@ class MidiDataFrame:
         # Function Initialization
         self.parse_midi_to_df()
         self.split_parsed_df()
+        self.convert_notes_to_matrix()
 
     def parse_midi_to_df(self):
         """ Function for converting midi file in path to a pandas dataframe"""
@@ -34,11 +38,21 @@ class MidiDataFrame:
         self.df.replace('\n', '', regex=True, inplace=True)
 
     def split_parsed_df(self):
-        """ Nests the dataframes into different types of data"""
+        """ Nests the dataframes into different types of data
+        Notes: Dataframe containing note-on/note-off events
+        """
 
         # Notes
+        notes_schema = {'track':int,
+                  'time':int,
+                  'type':str,
+                  'channel':int,
+                  'note':int,
+                  'velocity':int}
+
         self.notes = self.df[(self.df.Type == 'Note_on_c') | (self.df.Type == 'Note_off_c')][self.df.columns[0:6]]
-        self.notes.columns = ['Track', 'Time', 'Type', 'Channel', 'Note', 'Velocity']
+        self.notes.columns = notes_schema.keys()
+        self.notes = self.notes.astype(notes_schema)
 
         # Misc. Controls
 
@@ -48,13 +62,33 @@ class MidiDataFrame:
     def parse_df_to_midi(self, outpath):
         """ Writes the midi object back into a midi file, needs the directory of new file """
 
+    def convert_notes_to_matrix(self):
+        """
+        Converts the notes dataframe into a n-dimensional array for later use
+        :return: Converted Matrix
+        """
+
+        # Initialize a blank array
+        matrix = []
+
+        # For every unique track, add information as a triple
+        for i in self.notes.track.unique():
+            track_triples = []
+            for j in self.notes[self.notes.track == i].index:
+                event = [self.notes.loc[j, 'time'],
+                          self.notes.loc[j, 'note'],
+                          self.notes.loc[j, 'velocity']]
+                track_triples.extend([event])
+            matrix.append(track_triples)
+
+        self.notes_matrix = np.ndarray(matrix)
+
 def parse_all_midi_files(midi_dir):
     """ Pyotr specific function where it will read in every midi file desired for training
-    Arguments:
-          directory containing all of the midi files
-    Returns:
-        list of MidiDataFrames
+    :param midi_dir: directory containing all of the midi files
+    :return: List of MidiDataFrames
     """
+
     midi_list = []
     for (dirpath, dirnames, filenames) in walk(midi_dir):
         for file in filenames:
@@ -66,8 +100,12 @@ def parse_all_midi_files(midi_dir):
 
 def Main():
 
-    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files\tch"
-    mdfs = parse_all_midi_files(testPath)
-    print(mdfs[0].notes.head())
+    ind_track = r"D:\Documents\GitHub\Pyotr\MIDI Files\tch\tch_sym6m1.mid"
+    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files"
+    mdf = MidiDataFrame(ind_track)
+    #mdf_list = parse_all_midi_files(testPath)
+
+    mdf.convert_notes_to_matrix()
+    print(mdf.notes_matrix.shape)
 
 Main()
