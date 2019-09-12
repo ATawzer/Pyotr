@@ -1,111 +1,139 @@
-import pandas as pd
-from py_midicsv import midicsv
-from os import walk
+import glob
 from tqdm import tqdm
-import numpy as np
-import tensorflow as tf
+import music21 as m21
+import sys
+import os
+
 
 class MidiDataFrame:
+    """
+    MIDI as both an m21 file and a data-driven structure wrapped into one object. The purpose of the
+    object is to help decompose MIDI files with an easy interface into the parts needed to be fed into
+    Artificial music composition.
+    """
 
     def __init__(self, path):
         """
-        Simple Class for storing MIDI data as a dataframe and keeping data clean.
+        Simple Class for storing MIDI data as a dataframe and outputting for training
         :param path: Location on disk of the MIDI file to be parsed
         """
         self.path = path
-        self.df = pd.DataFrame()
-        self.notes = pd.DataFrame()
+        self.midi = m21.converter.parse(self.path)
+        self.parts = m21.instrument.partitionByInstrument(self.midi)
 
-        # Function Initialization
-        self.parse_midi_to_df()
-        self.split_parsed_df()
-        self.convert_notes_to_matrix()
+        # Initilization of variables
+        self.note_sequence = []
 
-    def parse_midi_to_df(self):
-        """ Function for converting midi file in path to a pandas dataframe"""
+        # Populate object functions
+        self.gen_note_sequence()
 
-        try:
-            self.df = pd.DataFrame([line.split(", ") for line in midicsv.parse(self.path)])
-        except:
-            raise(IOError("Invalid Midi File, Midi df could not be parsed."))
-
-        # Name the columns
-        columns = ['Track', 'Time', 'Type']
-        for i in range(3, len(self.df.columns)):
-            columns.append(f'TypeInfo{i}')
-
-        self.df.columns = columns
-        self.df.replace('\n', '', regex=True, inplace=True)
-
-    def split_parsed_df(self):
-        """ Nests the dataframes into different types of data
-        Notes: Dataframe containing note-on/note-off events
+    def flatten_midi(self):
         """
-
-        # Notes
-        notes_schema = {'track':int,
-                  'time':int,
-                  'type':str,
-                  'channel':int,
-                  'note':int,
-                  'velocity':int}
-
-        self.notes = self.df[(self.df.Type == 'Note_on_c') | (self.df.Type == 'Note_off_c')][self.df.columns[0:6]]
-        self.notes.columns = notes_schema.keys()
-        self.notes = self.notes.astype(notes_schema)
-
-        # Misc. Controls
-
-    def join_split_df(self):
-        """ Unnests the dataframe into the self.df. Useful if writing midi file back out to drive"""
-
-    def parse_df_to_midi(self, outpath):
-        """ Writes the midi object back into a midi file, needs the directory of new file """
-
-    def convert_notes_to_matrix(self):
+        Often times easier to work with flattened parts, this function will do just that. Still works
+        if no flattening needed
+        :return: flattened midi file
         """
-        Converts the notes dataframe into a n-dimensional array for later use
-        :return: Converted Matrix
+        # Flatten parts to one line
+        flattened_parts = None
+        if self.parts:
+            flattened_parts = self.parts.parts[0].recurse()
+        else:
+            flattened_parts = self.midi.flat.notes
+
+        return flattened_parts
+
+    def gen_note_sequence(self):
         """
+        Use the midi file and m21 package to turn the midi file into a sequence of character strings
+        Written directly to self.note_sequence
+        """
+        # Build character string from flattened midi
+        for element in self.flatten_midi():
+            if isinstance(element, m21.note.Note):
+                self.note_sequence.append(str(element.pitch))
+            elif isinstance(element, m21.chord.Chord):
+                self.note_sequence.append('.'.join(str(n) for n in element.normalOrder))
 
-        # Initialize a blank array
-        matrix = []
 
-        # For every unique track, add information as a triple
-        for i in self.notes.track.unique():
-            track_triples = []
-            for j in self.notes[self.notes.track == i].index:
-                event = [self.notes.loc[j, 'time'],
-                          self.notes.loc[j, 'note'],
-                          self.notes.loc[j, 'velocity']]
-                track_triples.extend([event])
-            matrix.append(track_triples)
+class MidiCollection:
+    """
+    MDF's in bulk, Tool wrapped around a MIDI Data-frame to allow for quick and easy use of MIDI files in
+    Machine Learning. Given a directory of MIDI files, it will locate and construct the necessary data types
+    to use the MIDI in Machine Learning and Music Composition. Functionality and syntax is meant to mirror
+    the mdf as if the collection were just one combined MIDI file. An individual MDF can be accessed from
+    the MidiCollection via indexing.
 
-        self.notes_matrix = np.ndarray(matrix)
-
-def parse_all_midi_files(midi_dir):
-    """ Pyotr specific function where it will read in every midi file desired for training
-    :param midi_dir: directory containing all of the midi files
-    :return: List of MidiDataFrames
+    Usage: Passing a directory only initializes the collection. To utilize the MIDI files just call the
+    build method, which will officially parse and organize the MIDI files into Machine Learning ready data.
+    This can be lengthy, hence the ability to disable if static functions are desired or reading in
+    pre-processed MIDI from disk.
     """
 
-    midi_list = []
-    for (dirpath, dirnames, filenames) in walk(midi_dir):
-        for file in filenames:
-            midi_list.append(f"{dirpath}\\{file}")
+    def __init__(self, dir, verbose=True, auto_build=True):
 
-    print("Parsing Midi Files . . .")
-    mdf_list = [MidiDataFrame(midi) for midi in tqdm(midi_list)]
-    return mdf_list
+        self.dir = dir
+        self.midi_files = [file for file in glob.glob(f"{self.dir}/*.mid")]
+        self.verbose = verbose
+        self.built = False
 
-def Main():
+        # Initialization of variables
+        self.mdf_list = []
+        self.note_sequence = []
+
+        # Initial Functions
+        self.set_verbose()
+        self.build() if auto_build else print("Caution: Collection not Built.")
+
+    def __getitem__(self, item):
+        return self.mdf_list[item]
+
+    # Class Usage functions
+    def set_verbose(self):
+        if not self.verbose:
+            sys.stdout = open(os.devnull, 'w')
+
+    def build(self):
+        """
+        Run this function to properly read in and organize the MDF's. This function is called by default
+        but can be avoided if user doesn't want to process the MIDI files in the directory.
+
+        Future Work: More useful once the collection has the option to load from disk rather than reprocess
+        each of the MIDI files. This will save time as MIDI libraries grow to massive sizes.
+        """
+        if self.built:
+            print("MidiCollection already built.")
+        else:
+            print("Constructing MidiCollection Objects . . .")
+            self.mdf_list = [MidiDataFrame(midi) for midi in tqdm(self.midi_files)]
+            self.gen_note_sequence()
+
+            print("MidiCollection Built.")
+
+            self.built = True
+
+    # Build Functions
+    def gen_note_sequence(self):
+        """
+        Build Function that combines the MDF's in the MidiCollection into one note sequence.
+        """
+        for mdf in self.mdf_list:
+            self.note_sequence.extend(mdf.note_sequence)
+
+    # IO Functionality
+    def save(self):
+        """
+        Writes the MidiCollection and pre-processed MDF's to disk for easy use in the future.
+        """
+
+
+
+def test():
 
     ind_track = r"D:\Documents\GitHub\Pyotr\MIDI Files\tch\tch_sym6m1.mid"
-    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files"
-    mdf = MidiDataFrame(ind_track)
-    #mdf_list = parse_all_midi_files(testPath)
+    testPath = r"D:\Documents\GitHub\Pyotr\MIDI Files\Piano Training"
 
-    mdf.convert_notes_to_matrix()
-    print(mdf.notes_matrix.shape)
+    mc = MidiCollection(testPath, auto_build=True, verbose=True)
+    print(mc.note_sequence)
 
-Main()
+
+test()
