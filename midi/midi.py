@@ -4,7 +4,6 @@ import music21 as m21
 import sys
 import os
 
-
 class MidiDataFrame:
     """
     MIDI as both an m21 file and a data-driven structure wrapped into one object. The purpose of the
