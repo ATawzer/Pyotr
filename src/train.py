@@ -19,11 +19,11 @@ class TrainingSetBuilder:
         self.num_notes = num_notes
         self.build_map = {
 
-            'build_next_note':self.build_next_note
+            'next_note':self.build_next_note
         }
 
     # core functions
-    def Build(self):
+    def Build(self, build_type):
         """
 
         :return:
@@ -31,7 +31,7 @@ class TrainingSetBuilder:
         if build_type in self.build_map.keys():
             return self.build_map[build_type]()
         else:
-            raise ValueError("Encoding Type not Found, see MidiEncoder().encoder_map for supported types.")
+            raise ValueError("Build Type not Found, see TrainingSetBuilder().build_map for supported types.")
 
     # builder functions
     def build_next_note(self):
@@ -41,10 +41,10 @@ class TrainingSetBuilder:
         :return: DataFrame of inputs and targets
         """
 
-        X_cols = [f"n_{x}" for x in range(1, num_notes)]
+        X_cols = [f"n_{x}" for x in range(1, self.num_notes+1)]
         y_col =  'n_target'
-        df = pd.DataFrame(index=[x for x in range(0, self.get_train_size())],
-                          columns=X_cols+y_col)
+        df = pd.DataFrame(index=[x for x in range(0, self.get_train_set_size())],
+                          columns=X_cols+[y_col])
 
         offset = 0
         for piece in self.mdict_enc_f:
@@ -61,10 +61,11 @@ class TrainingSetBuilder:
         flatten measures to a long string for other building functions
         :return: flattened mdict
         """
-        flat_enc = []
-        for piece in self.mdict:
-            for measure in self.mdict[piece]:
-                flat_enc.extend(self.mdict[piece][measure])
+        flat_enc = {}
+        for piece in self.mdict_enc:
+            flat_enc[piece] = []
+            for measure in self.mdict_enc[piece]:
+                flat_enc[piece].extend(self.mdict_enc[piece][measure])
 
         return flat_enc
 
