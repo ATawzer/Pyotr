@@ -1,10 +1,9 @@
 import pandas as pd
-
 from .midi import *
 
 class TrainingSet:
 
-    def __init__(self, mdict_enc, num_notes, by_measure=False, build_type='all'):
+    def __init__(self, mdict_enc, num_notes, by_measure=True, build_type='next_note'):
         """
         Class to hold and access data for training in torch.
         This is wrapped around a TrainingSetBuilder object which
@@ -21,11 +20,12 @@ class TrainingSet:
         self.build_type = build_type
 
         # Initialized Attributes
-        self.Xnp = None
-        self.ynp = None
+        self.Xnp = None # numpy for X
+        self.ynp = None # numpy for y
         self.tsg = TrainingSetBuilder()
         self.unique_tokens = []
         self.token_idx_map = {}
+        self.idx_token_map = {}
 
         # build and setup the data
         self.build()
@@ -38,12 +38,13 @@ class TrainingSet:
         self.tsg = TrainingSetBuilder(self.mdict_enc, num_notes=self.num_notes, by_measure=self.by_measure)
         self.Xnp, self.ynp = self.tsg.Build(build_type=self.build_type)
         self.gen_unique_tokens()
-        self.gen_token_idx_map()
+        self.gen_token_idx_maps()
 
     # Generation and initialization functions
     def gen_unique_tokens(self, flush=False):
         """
         Update unique_tokens attribute
+        :param flush: Whether to clear unique_tokens if mdict updates, defaults to False
         :return: None
         """
         if flush:
@@ -54,12 +55,19 @@ class TrainingSet:
                 if token not in self.unique_tokens:
                     self.unique_tokens.append(token)
 
-    def gen_token_idx_map(self, flush=False):
+    def gen_token_idx_maps(self, flush=True):
         """
         Generates a mapping from tokens to numbers
-        :param flush:
-        :return:
+        :param flush: Whether to clear current map before changing, defaults to True
+        :return: None, updates object
         """
+        if flush:
+            self.token_idx_map = {}
+            self.idx_token_map = {}
+
+        for i, token in enumerate(self.unique_tokens):
+            self.token_idx_map[token] = i
+            self.idx_token_map[i] = token
 
     def get_vocab_size(self):
         """
