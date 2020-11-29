@@ -7,7 +7,9 @@ class TrainingSetBuilder:
 
     def __init__(self, mdict_enc, num_notes=16, by_measure=False):
         """
-
+        Class for managing the construction of training datasets for different target/train sets
+        see TrainingSetBuilder().build_map for supported outputs.
+        Methods will return numpy arrays
         :param mdict: dict of encoded midi objects
         :param by_measure: Whether the encoding was done by measure
         :param num_notes: Number of notes to include per training sample
@@ -19,13 +21,14 @@ class TrainingSetBuilder:
         self.num_notes = num_notes
         self.build_map = {
 
-            'next_note':self.build_next_note
+            'next_note':self.build_next_note,
+            'previous_note':self.build_previous_note,
         }
 
     # core functions
     def Build(self, build_type):
         """
-
+        Function for building a dataframe of predictions
         :return:
         """
         if build_type in self.build_map.keys():
@@ -36,7 +39,7 @@ class TrainingSetBuilder:
     # builder functions
     def build_next_note(self):
         """
-        generate a DataFrame from the mdict object
+        generate a DataFrame from the mdict object where next note is target
         :param num_notes: how many notes used to predict next notes
         :return: DataFrame of inputs and targets
         """
@@ -54,8 +57,29 @@ class TrainingSetBuilder:
                 df.loc[i+offset, y_col] = self.mdict_enc_f[piece][i+self.num_notes]
             offset += num_samples
 
-        return df
+        return df[df.columns[:-1]].values, df[df.columns[-1]].values
 
+    def build_previous_note(self):
+        """
+        generate a DataFrame from the mdict object where first note is target
+        :param num_notes: how many notes used to predict next notes
+        :return: DataFrame of inputs and targets
+        """
+
+        X_cols = [f"n_{x}" for x in range(1, self.num_notes + 1)]
+        y_col = 'n_target'
+        df = pd.DataFrame(index=[x for x in range(0, self.get_train_set_size())],
+                          columns=X_cols + [y_col])
+
+        offset = 0
+        for piece in self.mdict_enc_f:
+            num_samples = len(self.mdict_enc_f[piece]) - self.num_notes
+            for i in range(0, num_samples):
+                df.loc[i + offset, X_cols] = self.mdict_enc_f[piece][i + self.num_notes:i]
+                df.loc[i + offset, y_col] = self.mdict_enc_f[piece][i]
+            offset += num_samples
+
+        return df[df.columns[:-1]].values, df[df.columns[-1]].values
 
     # helper functions
     def flatten_measures(self):
