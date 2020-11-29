@@ -51,8 +51,10 @@ class TrainingSetBuilder:
             num_samples = len(self.mdict_enc_f[piece])-self.num_notes
             for i in range(0, num_samples):
                 df.loc[i+offset, X_cols] = self.mdict_enc_f[piece][i:i+self.num_notes]
-                df.loc[i+offset, y_col] = self.mdict_enc_f[piece][i+self.num_notes+1]
+                df.loc[i+offset, y_col] = self.mdict_enc_f[piece][i+self.num_notes]
             offset += num_samples
+
+        return df
 
 
     # helper functions
