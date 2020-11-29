@@ -39,7 +39,7 @@ class TrainingSetBuilder:
     # builder functions
     def build_next_note(self):
         """
-        generate a DataFrame from the mdict object where next note is target
+        generate numpy arrays from the mdict object where next note is target
         :param num_notes: how many notes used to predict next notes
         :return: DataFrame of inputs and targets
         """
@@ -61,7 +61,7 @@ class TrainingSetBuilder:
 
     def build_previous_note(self):
         """
-        generate a DataFrame from the mdict object where first note is target
+        generate numpy arrays from the mdict object where first note is target
         :param num_notes: how many notes used to predict next notes
         :return: DataFrame of inputs and targets
         """
