@@ -2,6 +2,81 @@ import pandas as pd
 
 from .midi import *
 
+class TrainingSet:
+
+    def __init__(self, mdict_enc, num_notes, by_measure=False, build_type='all'):
+        """
+        Class to hold and access data for training in torch.
+        This is wrapped around a TrainingSetBuilder object which
+        does much of the data manipulation. This object makes getting
+        information out of the prepared set much easier.
+        :param mdict: dict of encoded midi objects
+        :param by_measure: Whether the encoding was done by measure
+        :param num_notes: Number of notes to include per training sample
+        """
+
+        self.mdict_enc = mdict_enc
+        self.by_measure = by_measure
+        self.num_notes = num_notes
+        self.build_type = build_type
+
+        # Initialized Attributes
+        self.Xnp = None
+        self.ynp = None
+        self.tsg = TrainingSetBuilder()
+        self.unique_tokens = []
+        self.token_idx_map = {}
+
+        # build and setup the data
+        self.build()
+
+    def build(self):
+        """
+        Builds or Rebuilds TSG object and corresponding metadata if parameters or mdict has changed.
+        :return:
+        """
+        self.tsg = TrainingSetBuilder(self.mdict_enc, num_notes=self.num_notes, by_measure=self.by_measure)
+        self.Xnp, self.ynp = self.tsg.Build(build_type=self.build_type)
+        self.gen_unique_tokens()
+        self.gen_token_idx_map()
+
+    # Generation and initialization functions
+    def gen_unique_tokens(self, flush=False):
+        """
+        Update unique_tokens attribute
+        :return: None
+        """
+        if flush:
+            self.unique_tokens = []
+
+        for piece in self.tsg.mdict_enc_f:
+            for token in self.tsg.mdict_enc_f[piece]:
+                if token not in self.unique_tokens:
+                    self.unique_tokens.append(token)
+
+    def gen_token_idx_map(self, flush=False):
+        """
+        Generates a mapping from tokens to numbers
+        :param flush:
+        :return:
+        """
+
+    def get_vocab_size(self):
+        """
+        Function for determining unique tokens in midi training data
+        :return:
+        """
+        # Vocab Sizes
+        return len(self.unique_tokens)
+
+    def tokens_to_index(self):
+        """
+        Applys token to index mapping
+        :return:
+        """
+        for i in range(0, self.get_vocab_size()):
+
+
 
 class TrainingSetBuilder:
 
