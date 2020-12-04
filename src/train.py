@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from .midi import *
 
 class TrainingSet:
@@ -20,9 +21,11 @@ class TrainingSet:
         self.build_type = build_type
 
         # Initialized Attributes
-        self.Xnp = None # numpy for X
-        self.ynp = None # numpy for y
-        self.tsg = TrainingSetBuilder()
+        self.Xnp_token = None # numpy for X tokens
+        self.ynp_token = None # numpy for y tokens
+        self.Xnp = None # numpy for X numbers
+        self.ynp = None # numpy for y numbers
+        self.tsg = None
         self.unique_tokens = []
         self.token_idx_map = {}
         self.idx_token_map = {}
@@ -36,9 +39,11 @@ class TrainingSet:
         :return:
         """
         self.tsg = TrainingSetBuilder(self.mdict_enc, num_notes=self.num_notes, by_measure=self.by_measure)
-        self.Xnp, self.ynp = self.tsg.Build(build_type=self.build_type)
+        self.Xnp_token, self.ynp_token = self.tsg.Build(build_type=self.build_type)
         self.gen_unique_tokens()
         self.gen_token_idx_maps()
+        self.Xnp = np.array([[self.token_idx_map[x] for x in y] for y in self.Xnp_token])
+        self.ynp = [self.token_idx_map[x] for x in self.ynp_token]
 
     # Generation and initialization functions
     def gen_unique_tokens(self, flush=False):
@@ -76,15 +81,6 @@ class TrainingSet:
         """
         # Vocab Sizes
         return len(self.unique_tokens)
-
-    def tokens_to_index(self):
-        """
-        Applys token to index mapping
-        :return:
-        """
-        for i in range(0, self.get_vocab_size()):
-
-
 
 class TrainingSetBuilder:
 
