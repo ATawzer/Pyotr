@@ -113,9 +113,18 @@ class MidiWriter:
         """
         # reset internal midi before writing to it
         self.midi = m21.stream.Stream()
+        rec_pos = 0
+        m_num = 0
+        bpmeas = 4
 
         for enc_note in mid_enc:
             note = self.decoder_map[enc_type](enc_note)
+
+            if note.offset < rec_pos:
+                m_num += 1
+
+            rec_pos = note.offset
+            note.offset += bpmeas*m_num
             self.midi.insert(note.offset, note)
 
     # Take a token and convert note
